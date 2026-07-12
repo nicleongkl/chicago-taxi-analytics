@@ -1,0 +1,48 @@
+config {
+  type: "table",
+  schema: "intermediate",
+description: "Reconstructed driver shifts — consecutive trips with less than 135 minutes gap are grouped into one shift"}
+
+WITH ordered_trips AS (
+  SELECT
+    taxi_id,
+    trip_start_timestamp,
+    trip_end_timestamp,
+    LAG(trip_end_timestamp) OVER (
+      PARTITION BY taxi_id ORDER BY trip_start_timestamp
+    ) AS prev_trip_end
+  FROM ${ref("stg_taxi_trips")}
+),
+
+shift_flags AS (
+  SELECT
+    *,
+    TIMESTAMP_DIFF(trip_start_timestamp, prev_trip_end, MINUTE) AS gap_minutes,
+    CASE
+      WHEN prev_trip_end IS NULL THEN 1
+      WHEN TIMESTAMP_DIFF(trip_start_timestamp, prev_trip_end, MINUTE) >= 135 THEN 1
+      ELSE 0
+    END AS new_shift_flag
+  FROM ordered_trips
+),
+
+shift_groups AS (
+  SELECT
+    *,
+    SUM(new_shift_flag) OVER (
+      PARTITION BY taxi_id ORDER BY trip_start_timestamp
+    ) AS shift_id
+  FROM shift_flags
+)
+
+SELECT
+  taxi_id,
+  shift_id,
+  MIN(trip_start_timestamp) AS shift_start,
+  MAX(trip_end_timestamp) AS shift_end,
+  TIMESTAMP_DIFF(MAX(trip_end_timestamp), MIN(trip_start_timestamp), HOUR) AS shift_hours,
+  COUNT(*) AS trips_in_shift,
+  ROUND(AVG(gap_minutes), 2) AS avg_gap_minutes,
+  MAX(gap_minutes) AS max_gap_minutes
+FROM shift_groups
+GROUP BY taxi_id, shift_id
