@@ -1,0 +1,30 @@
+config {
+  type: "table",
+  schema: "marts",
+  description: "Top 100 taxi IDs by total tips earned in the last 3 months of available data"
+}
+
+WITH date_range AS (
+  SELECT DATE_SUB(MAX(DATE(trip_start_timestamp)), INTERVAL 3 MONTH) AS cutoff_date
+  FROM ${ref("stg_taxi_trips")}
+),
+
+tip_summary AS (
+  SELECT
+    t.taxi_id,
+    COUNT(*) AS total_trips,
+    SUM(t.tips) AS total_tips,
+    ROUND(AVG(t.tips), 2) AS avg_tip_per_trip,
+    ROUND(SUM(t.tips) / SUM(t.fare) * 100, 2) AS tip_percentage_of_fare
+  FROM ${ref("stg_taxi_trips")} t
+  CROSS JOIN date_range d
+  WHERE DATE(t.trip_start_timestamp) >= d.cutoff_date
+  GROUP BY t.taxi_id
+)
+
+SELECT
+  *,
+  RANK() OVER (ORDER BY total_tips DESC) AS tip_rank
+FROM tip_summary
+QUALIFY tip_rank <= 100
+ORDER BY tip_rank
