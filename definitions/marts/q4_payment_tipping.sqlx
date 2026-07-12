@@ -1,0 +1,17 @@
+config {
+  type: "table",
+  schema: "marts",
+  description: "Bonus insight 2: Tipping behavior by payment type — cash riders tip far less, actionable for driver revenue strategy"
+}
+
+SELECT
+  payment_type,
+  COUNT(*) AS total_trips,
+  ROUND(AVG(tips), 2) AS avg_tip,
+  ROUND(AVG(SAFE_DIVIDE(tips, fare)) * 100, 2) AS avg_tip_pct_of_fare,
+  COUNTIF(tips > 0) AS trips_with_tips,
+  ROUND(COUNTIF(tips > 0) / COUNT(*) * 100, 2) AS pct_trips_with_tips
+FROM ${ref("stg_taxi_trips")}
+WHERE fare > 0
+GROUP BY payment_type
+ORDER BY avg_tip DESC
