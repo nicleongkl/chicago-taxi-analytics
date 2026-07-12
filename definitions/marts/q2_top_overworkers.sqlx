@@ -1,0 +1,40 @@
+config {
+  type: "table",
+  schema: "marts",
+  description: "Top 100 taxi IDs that regularly work long shifts (6+ hours, P75 threshold) without taking 8-hour breaks, based on a data-driven 135-minute shift gap definition"
+}
+
+WITH shift_breaks AS (
+  SELECT
+    taxi_id,
+    shift_id,
+    shift_hours,
+    TIMESTAMP_DIFF(
+      LEAD(shift_start) OVER (PARTITION BY taxi_id ORDER BY shift_start),
+      shift_end,
+      HOUR
+    ) AS hours_until_next_shift
+  FROM ${ref("int_driver_shifts")}
+),
+
+driver_stats AS (
+  SELECT
+    taxi_id,
+    COUNT(*) AS total_shifts,
+    ROUND(AVG(shift_hours), 2) AS avg_shift_hours,
+    COUNTIF(shift_hours >= 6) AS long_shifts,
+    ROUND(COUNTIF(shift_hours >= 6) / COUNT(*) * 100, 2) AS pct_long_shifts,
+    MAX(shift_hours) AS longest_shift,
+    COUNTIF(hours_until_next_shift < 8) AS short_breaks,
+    ROUND(COUNTIF(hours_until_next_shift < 8) / NULLIF(COUNTIF(hours_until_next_shift IS NOT NULL), 0) * 100, 2) AS pct_short_breaks
+  FROM shift_breaks
+  GROUP BY taxi_id
+)
+
+SELECT
+  *,
+  RANK() OVER (ORDER BY pct_long_shifts DESC, pct_short_breaks DESC) AS overwork_rank
+FROM driver_stats
+WHERE total_shifts >= 10
+QUALIFY overwork_rank <= 100
+ORDER BY overwork_rank
