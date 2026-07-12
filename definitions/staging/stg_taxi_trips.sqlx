@@ -1,0 +1,43 @@
+config {
+    type: "table",
+    schema: "staging",
+    description: "Cleaned version of raw Chicago taxi trips data"
+}
+
+SELECT
+  unique_key,
+  taxi_id,
+  trip_start_timestamp,
+  trip_end_timestamp,
+  trip_seconds,
+  trip_miles,
+  pickup_census_tract,
+  dropoff_census_tract,
+  pickup_community_area,
+  dropoff_community_area,
+  fare,
+  tips,
+  tolls,
+  extras,
+  trip_total,
+  payment_type,
+  company,
+  pickup_latitude,
+  pickup_longitude,
+  dropoff_latitude,
+  dropoff_longitude
+FROM
+  `bigquery-public-data.chicago_taxi_trips.taxi_trips`
+WHERE
+  -- Remove rows with missing critical fields
+  taxi_id IS NOT NULL
+  AND trip_start_timestamp IS NOT NULL
+  AND trip_end_timestamp IS NOT NULL
+  -- Remove nonsensical values
+  AND trip_seconds > 0
+  AND trip_miles > 0
+  AND fare > 0
+  -- Sanity: trip end must be after trip start
+  AND trip_end_timestamp > trip_start_timestamp
+
+  -- Updated
