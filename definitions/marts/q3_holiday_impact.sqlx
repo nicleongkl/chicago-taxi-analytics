@@ -1,0 +1,37 @@
+config {
+  type: "table",
+  schema: "marts",
+  description: "Comparison of trip volume on holidays vs non-holidays"
+}
+
+WITH daily_trips AS (
+  SELECT
+    DATE(trip_start_timestamp) AS trip_date,
+    EXTRACT(DAYOFWEEK FROM trip_start_timestamp) AS day_of_week,
+    COUNT(*) AS trip_count,
+    ROUND(SUM(fare), 2) AS total_fare,
+    ROUND(SUM(tips), 2) AS total_tips
+  FROM ${ref("stg_taxi_trips")}
+  GROUP BY 1, 2
+),
+
+flagged AS (
+  SELECT
+    d.*,
+    h.name AS holiday_name,
+    CASE WHEN h.date IS NOT NULL THEN 'Holiday' ELSE 'Non-Holiday' END AS day_type
+  FROM daily_trips d
+  LEFT JOIN ${ref("int_us_holidays")} h
+    ON d.trip_date = h.date
+)
+
+SELECT
+  day_type,
+  holiday_name,
+  COUNT(*) AS num_days,
+  ROUND(AVG(trip_count), 0) AS avg_daily_trips,
+  ROUND(AVG(total_fare), 2) AS avg_daily_fare,
+  ROUND(AVG(total_tips), 2) AS avg_daily_tips
+FROM flagged
+GROUP BY day_type, holiday_name
+ORDER BY day_type, avg_daily_trips DESC
