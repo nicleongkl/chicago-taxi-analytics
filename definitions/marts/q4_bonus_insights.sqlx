@@ -1,0 +1,17 @@
+config {
+  type: "table",
+  schema: "marts",
+  description: "Bonus insight 1: Peak demand hours and their revenue — helps optimize driver scheduling"
+}
+
+SELECT
+  EXTRACT(HOUR FROM trip_start_timestamp) AS hour_of_day,
+  EXTRACT(DAYOFWEEK FROM trip_start_timestamp) AS day_of_week_num,
+  FORMAT_TIMESTAMP('%A', trip_start_timestamp) AS day_of_week,
+  COUNT(*) AS trip_count,
+  ROUND(AVG(fare), 2) AS avg_fare,
+  ROUND(AVG(tips), 2) AS avg_tip,
+  ROUND(AVG(trip_miles), 2) AS avg_distance
+FROM ${ref("stg_taxi_trips")}
+GROUP BY 1, 2, 3
+ORDER BY day_of_week_num, hour_of_day
