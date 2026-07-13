@@ -109,7 +109,7 @@ A minimum threshold of 10 total shifts is applied to ensure statistical relevanc
 
 ## Looker Studio Dashboard
 
-[Insert your public Looker Studio link here]
+https://datastudio.google.com/s/svhDpNqQ3T4
 
 ## How to Run
 
