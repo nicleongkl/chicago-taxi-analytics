@@ -38,6 +38,22 @@ The pipeline follows a three-layer architecture:
 - **Intermediate:** Contains reusable building blocks — the shift reconstruction model and the holiday reference table.
 - **Marts:** Final analytical models that directly answer each question and power the Looker Studio dashboard.
 
+## Pipeline Automation
+
+The entire pipeline is automated through GCP Dataform. All models use `${ref()}` 
+dependencies, so Dataform resolves the execution order automatically:
+
+1. `stg_taxi_trips` runs first (staging)
+2. `int_driver_shifts` and `int_us_holidays` run next (intermediate)
+3. All mart models run last (Q1–Q4)
+
+To re-run the full pipeline: open the Dataform repository → Start Execution → 
+select "All actions" → Execute. Dataform handles the dependency graph and runs 
+everything in the correct order.
+
+This can also be scheduled via Dataform's workflow configurations to run on a 
+recurring basis (e.g., daily) for production use.
+
 ## Questions & Methodology
 
 ### Q1: Top 100 Tip Earners
